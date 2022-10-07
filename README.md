@@ -1,4 +1,4 @@
-# Core: a collection of useful functionality for Unity, which is used by my other packages.
+# Package Exporter: a tool for creating unitypackage archives from files in your project.
 
 ### Installation:
 
