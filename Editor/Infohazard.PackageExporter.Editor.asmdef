@@ -1,0 +1,18 @@
+{
+    "name": "Infohazard.PackageExporter.Editor",
+    "rootNamespace": "Infohazard.PackageExporter",
+    "references": [
+        "GUID:41b3be209e3cc074c9bab47ec8148e91"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
