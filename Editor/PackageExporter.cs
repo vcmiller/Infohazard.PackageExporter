@@ -21,6 +21,7 @@ namespace Infohazard.PackageExporter.Editor {
 
         [ContextMenu("Export")]
         public void Export() {
+            HashSet<string> addedPaths = new HashSet<string>();
             string outputPath = EditorUtility.SaveFilePanel("Export Package",
                                                             string.Empty,
                                                             name + ".unitypackage", 
@@ -38,23 +39,13 @@ namespace Infohazard.PackageExporter.Editor {
             
             List<string> foldersToInclude = new List<string>();
             
-            string[] pathParts = _prependFolderPath.Split('/', '\\');
-            string pathSoFar = pathParts[0];
-            for (int i = 1; i < pathParts.Length; i++) {
-                string part = pathParts[i];
-                pathSoFar = Path.Combine(pathSoFar, part).Replace('\\', '/');
-                string guid = AssetDatabase.AssetPathToGUID(pathSoFar);
-                foldersToInclude.Add(CreateTempDirectoryForAsset(pathSoFar, guid, false));
-            }
-            
             foreach (Object asset in _paths) {
                 string path = AssetDatabase.GetAssetPath(asset);
-                string guid = AssetDatabase.AssetPathToGUID(path);
 
-                foldersToInclude.Add(CreateTempDirectoryForAsset(path, guid, true));
+                CreateTempDirectoriesForAsset(path, foldersToInclude, addedPaths);
                 
                 if (asset is DefaultAsset) {
-                    ExploreFolder(path, foldersToInclude);
+                    ExploreFolder(path, foldersToInclude, addedPaths);
                 }
             }
 
@@ -72,34 +63,46 @@ namespace Infohazard.PackageExporter.Editor {
             Directory.Delete(_tempPath, true);
         }
 
-        private void ExploreFolder(string path, List<string> foldersToInclude) {
+        private void ExploreFolder(string path, List<string> foldersToInclude, HashSet<string> addedPaths) {
             if (!Directory.Exists(path)) return;
 
             foreach (string file in Directory.EnumerateFiles(path)) {
                 if (file.EndsWith(".meta")) continue;
-                string guid = AssetDatabase.AssetPathToGUID(file, AssetPathToGUIDOptions.OnlyExistingAssets);
-                if (string.IsNullOrEmpty(guid)) continue;
-                foldersToInclude.Add(CreateTempDirectoryForAsset(file, guid, true));
+                CreateTempDirectoriesForAsset(file, foldersToInclude, addedPaths);
             }
 
             foreach (string directory in Directory.EnumerateDirectories(path)) {
                 if (!Directory.EnumerateDirectories(directory).Any() &&
                     !Directory.EnumerateFiles(directory).Any()) continue;
                 
-                string guid = AssetDatabase.AssetPathToGUID(directory, AssetPathToGUIDOptions.OnlyExistingAssets);
-                if (string.IsNullOrEmpty(guid)) continue;
-                foldersToInclude.Add(CreateTempDirectoryForAsset(directory, guid, true));
+                CreateTempDirectoriesForAsset(directory, foldersToInclude, addedPaths);
                 
-                ExploreFolder(directory, foldersToInclude);
+                ExploreFolder(directory, foldersToInclude, addedPaths);
             }
         }
 
-        private string CreateTempDirectoryForAsset(string path, string guid, bool replacePrefix) {
+        private void CreateTempDirectoriesForAsset(string path, List<string> outputPaths, HashSet<string> addedPaths) {
+            string[] pathParts = path.Split('/', '\\');
+            string pathSoFar = pathParts[0];
+            for (int i = 1; i < pathParts.Length; i++) {
+                string part = pathParts[i];
+                pathSoFar = Path.Combine(pathSoFar, part).Replace('\\', '/');
+                CreateTempDirectoryForAsset(pathSoFar, outputPaths, addedPaths);
+            }
+        }
+
+        private void CreateTempDirectoryForAsset(string path, List<string> outputPaths, HashSet<string> addedPaths) {
+            if (_removeFolderPath.StartsWith(path)) return;
+            string guid = AssetDatabase.AssetPathToGUID(path, AssetPathToGUIDOptions.OnlyExistingAssets);
+            if (string.IsNullOrEmpty(guid)) return;
+            
             string pathInPackage = path;
-            if (replacePrefix && pathInPackage.StartsWith(_removeFolderPath)) {
+            if (pathInPackage.StartsWith(_removeFolderPath)) {
                 pathInPackage = pathInPackage.Substring(_removeFolderPath.Length + 1);
                 pathInPackage = Path.Combine(_prependFolderPath, pathInPackage).Replace('\\', '/');
             }
+            
+            if (!addedPaths.Add(pathInPackage)) return;
 
             string folder = Path.Combine(_tempPath, guid);
             Directory.CreateDirectory(folder);
@@ -110,7 +113,7 @@ namespace Infohazard.PackageExporter.Editor {
             
             File.Copy(path + ".meta", Path.Combine(folder, "asset.meta"));
             File.WriteAllText(Path.Combine(folder, "pathname"), pathInPackage);
-            return folder;
+            outputPaths.Add(folder);
         }
     }
 }
