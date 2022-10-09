@@ -96,11 +96,8 @@ namespace Infohazard.PackageExporter.Editor {
 
         private string CreateTempDirectoryForAsset(string path, string guid, bool replacePrefix) {
             string pathInPackage = path;
-            if (replacePrefix) {
-                if (pathInPackage.StartsWith(_removeFolderPath)) {
-                    pathInPackage = pathInPackage.Substring(_removeFolderPath.Length + 1);
-                }
-
+            if (replacePrefix && pathInPackage.StartsWith(_removeFolderPath)) {
+                pathInPackage = pathInPackage.Substring(_removeFolderPath.Length + 1);
                 pathInPackage = Path.Combine(_prependFolderPath, pathInPackage).Replace('\\', '/');
             }
 
