@@ -3,7 +3,9 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using Infohazard.Core.Editor;
+using Newtonsoft.Json;
 using UnityEditor;
+using UnityEditorInternal;
 using UnityEngine;
 using Debug = UnityEngine.Debug;
 using Object = UnityEngine.Object;
@@ -14,10 +16,15 @@ namespace Infohazard.PackageExporter.Editor {
         [SerializeField] private DefaultAsset _removeFolder;
         [SerializeField] private DefaultAsset _prependFolder;
         [SerializeField] private Object[] _paths;
+        [SerializeField] private PackageManifest _package;
 
         private string _removeFolderPath;
         private string _prependFolderPath;
         private string _tempPath;
+
+        private const string ManifestJsonFolder = "packagemanagermanifest";
+        private const string ManifestJsonPathFileContents = @"Packages/manifest.json
+00";
 
         [ContextMenu("Export")]
         public void Export() {
@@ -48,6 +55,8 @@ namespace Infohazard.PackageExporter.Editor {
                     ExploreFolder(path, foldersToInclude, addedPaths);
                 }
             }
+            
+            if (_package) CreatePackageManagerManifestFolder(foldersToInclude);
 
             string tarName = Path.Combine(_tempPath, "archtemp.tar").Replace('/', '\\');
             StringBuilder sb = new StringBuilder();
@@ -91,6 +100,17 @@ namespace Infohazard.PackageExporter.Editor {
             }
         }
 
+        private void CreatePackageManagerManifestFolder(List<string> outputPaths) {
+            string folder = Path.Combine(_tempPath, ManifestJsonFolder);
+            Directory.CreateDirectory(folder);
+
+            SimpleManifest manifest = JsonConvert.DeserializeObject<SimpleManifest>(_package.text);
+            File.WriteAllText(Path.Combine(folder, "asset"), JsonConvert.SerializeObject(manifest, Formatting.Indented));
+            File.WriteAllText(Path.Combine(folder, "pathname"), ManifestJsonPathFileContents);
+            
+            outputPaths.Add(folder);
+        }
+
         private void CreateTempDirectoryForAsset(string path, List<string> outputPaths, HashSet<string> addedPaths) {
             if (_removeFolderPath.StartsWith(path)) return;
             string guid = AssetDatabase.AssetPathToGUID(path, AssetPathToGUIDOptions.OnlyExistingAssets);
@@ -114,6 +134,10 @@ namespace Infohazard.PackageExporter.Editor {
             File.Copy(path + ".meta", Path.Combine(folder, "asset.meta"));
             File.WriteAllText(Path.Combine(folder, "pathname"), pathInPackage);
             outputPaths.Add(folder);
+        }
+        
+        public class SimpleManifest {
+            public Dictionary<string, string> dependencies { get; set; } = new Dictionary<string, string>();
         }
     }
 }
