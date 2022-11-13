@@ -113,7 +113,7 @@ namespace Infohazard.PackageExporter.Editor {
 
         private void CreateTempDirectoryForAsset(string path, List<string> outputPaths, HashSet<string> addedPaths) {
             if (_removeFolderPath.StartsWith(path)) return;
-            string guid = AssetDatabase.AssetPathToGUID(path, AssetPathToGUIDOptions.OnlyExistingAssets);
+            string guid = AssetDatabase.AssetPathToGUID(path);
             if (string.IsNullOrEmpty(guid)) return;
             
             string pathInPackage = path;
