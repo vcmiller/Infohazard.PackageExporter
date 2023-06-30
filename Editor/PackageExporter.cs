@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -17,6 +18,7 @@ namespace Infohazard.PackageExporter.Editor {
         [SerializeField] private DefaultAsset _prependFolder;
         [SerializeField] private Object[] _paths;
         [SerializeField] private PackageManifest _package;
+        [SerializeField] private string _lastExportPath;
 
         private string _removeFolderPath;
         private string _prependFolderPath;
@@ -30,7 +32,7 @@ namespace Infohazard.PackageExporter.Editor {
         public void Export() {
             HashSet<string> addedPaths = new HashSet<string>();
             string outputPath = EditorUtility.SaveFilePanel("Export Package",
-                                                            string.Empty,
+                                                            _lastExportPath,
                                                             name + ".unitypackage", 
                                                             "unitypackage");
             if (string.IsNullOrEmpty(outputPath)) return;
@@ -70,6 +72,16 @@ namespace Infohazard.PackageExporter.Editor {
             CoreEditorUtility.ExecuteProcess("7z.exe", $"a -tgzip \"{outputPath}\" \"{tarName}\"", true);
             
             Directory.Delete(_tempPath, true);
+
+            string savePath = Path.GetFullPath(Path.GetDirectoryName(outputPath)!);
+            string currentDir = Path.GetFullPath(Environment.CurrentDirectory);
+
+            if (savePath.StartsWith(currentDir)) {
+                savePath = savePath.Substring(currentDir.Length + 1);
+            }
+
+            _lastExportPath = savePath.Replace('\\', '/');
+            EditorUtility.SetDirty(this);
         }
 
         private void ExploreFolder(string path, List<string> foldersToInclude, HashSet<string> addedPaths) {
