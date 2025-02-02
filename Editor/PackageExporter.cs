@@ -33,44 +33,47 @@ namespace Infohazard.PackageExporter.Editor {
             HashSet<string> addedPaths = new HashSet<string>();
             string outputPath = EditorUtility.SaveFilePanel("Export Package",
                                                             _lastExportPath,
-                                                            name + ".unitypackage", 
+                                                            name + ".unitypackage",
                                                             "unitypackage");
             if (string.IsNullOrEmpty(outputPath)) return;
-            
+
             _tempPath = Path.Combine(Application.temporaryCachePath, name);
             if (Directory.Exists(_tempPath)) {
                 Directory.Delete(_tempPath, true);
             }
             Debug.Log(_tempPath);
-            
+
             _prependFolderPath = _prependFolder ? AssetDatabase.GetAssetPath(_prependFolder) : string.Empty;
             _removeFolderPath = _removeFolder ? AssetDatabase.GetAssetPath(_removeFolder) : string.Empty;
-            
+
             List<string> foldersToInclude = new List<string>();
-            
+
             foreach (Object asset in _paths) {
                 string path = AssetDatabase.GetAssetPath(asset);
 
                 CreateTempDirectoriesForAsset(path, foldersToInclude, addedPaths);
-                
+
                 if (asset is DefaultAsset) {
                     ExploreFolder(path, foldersToInclude, addedPaths);
                 }
             }
-            
+
             if (_package) CreatePackageManagerManifestFolder(foldersToInclude);
 
-            string tarName = Path.Combine(_tempPath, "archtemp.tar").Replace('/', '\\');
-            StringBuilder sb = new StringBuilder();
-            sb.Append($"a -ttar \"{tarName}\" ");
+            string fileListPath = Path.Combine(_tempPath, "filelist.txt");
+
+            StringBuilder sb = new();
             foreach (string folder in foldersToInclude) {
-                sb.Append($" \"{folder.Replace('/', '\\')}\"");
+                sb.AppendLine(folder.Replace('/', '\\'));
             }
 
-            CoreEditorUtility.ExecuteProcess("7z.exe", sb.ToString(), true);
+            File.WriteAllText(fileListPath, sb.ToString());
+
+            string tarName = Path.Combine(_tempPath, "archtemp.tar").Replace('/', '\\');
+            CoreEditorUtility.ExecuteProcess("7z.exe", $"a -ttar \"{tarName}\" @{fileListPath}", true);
 
             CoreEditorUtility.ExecuteProcess("7z.exe", $"a -tgzip \"{outputPath}\" \"{tarName}\"", true);
-            
+
             Directory.Delete(_tempPath, true);
 
             string savePath = Path.GetFullPath(Path.GetDirectoryName(outputPath)!);
@@ -95,9 +98,9 @@ namespace Infohazard.PackageExporter.Editor {
             foreach (string directory in Directory.EnumerateDirectories(path)) {
                 if (!Directory.EnumerateDirectories(directory).Any() &&
                     !Directory.EnumerateFiles(directory).Any()) continue;
-                
+
                 CreateTempDirectoriesForAsset(directory, foldersToInclude, addedPaths);
-                
+
                 ExploreFolder(directory, foldersToInclude, addedPaths);
             }
         }
@@ -119,7 +122,7 @@ namespace Infohazard.PackageExporter.Editor {
             SimpleManifest manifest = JsonConvert.DeserializeObject<SimpleManifest>(_package.text);
             File.WriteAllText(Path.Combine(folder, "asset"), JsonConvert.SerializeObject(manifest, Formatting.Indented));
             File.WriteAllText(Path.Combine(folder, "pathname"), ManifestJsonPathFileContents);
-            
+
             outputPaths.Add(folder);
         }
 
@@ -127,13 +130,13 @@ namespace Infohazard.PackageExporter.Editor {
             if (_removeFolderPath.StartsWith(path)) return;
             string guid = AssetDatabase.AssetPathToGUID(path);
             if (string.IsNullOrEmpty(guid)) return;
-            
+
             string pathInPackage = path;
             if (pathInPackage.StartsWith(_removeFolderPath)) {
                 pathInPackage = pathInPackage.Substring(_removeFolderPath.Length + 1);
                 pathInPackage = Path.Combine(_prependFolderPath, pathInPackage).Replace('\\', '/');
             }
-            
+
             if (!addedPaths.Add(pathInPackage)) return;
 
             string folder = Path.Combine(_tempPath, guid);
@@ -142,12 +145,12 @@ namespace Infohazard.PackageExporter.Editor {
             if (File.Exists(path)) {
                 File.Copy(path, Path.Combine(folder, "asset"));
             }
-            
+
             File.Copy(path + ".meta", Path.Combine(folder, "asset.meta"));
             File.WriteAllText(Path.Combine(folder, "pathname"), pathInPackage);
             outputPaths.Add(folder);
         }
-        
+
         public class SimpleManifest {
             public Dictionary<string, string> dependencies { get; set; } = new Dictionary<string, string>();
         }
